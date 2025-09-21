@@ -1,0 +1,182 @@
+/* ========== SmartMediaAssistant / style.css ========== */
+
+:root {
+  --sma-bg: #1a120e;      /* 页面深黑棕 */
+  --sma-panel: #2b1f1a;   /* 面板深棕 */
+  --sma-text: #f2e6d9;    /* 米白文字 */
+  --sma-accent: #c49a6c;  /* 金棕点缀 */
+  --sma-border: #4d3b2d;  /* 棕色边框 */
+  --sma-shadow: 0 10px 30px rgba(0,0,0,0.55);
+}
+
+/* “➕”按钮 */
+#smartmedia_button.sma-plus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-right: 6px;
+  color: var(--sma-text);
+}
+#smartmedia_button.sma-plus:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--sma-accent);
+}
+
+/* 遮罩 */
+.sma-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  background: rgba(0,0,0,0.38);
+  z-index: 2147483646;
+}
+.sma-overlay.open { display: block; }
+
+/* 顶部弹窗容器 */
+.sma-popup-top {
+  position: fixed;
+  top: 56px;                /* 顶部工具栏下方 */
+  left: 50%;
+  transform: translate(-50%, -12px) scale(0.98);
+  opacity: 0;
+  pointer-events: none;
+  width: min(820px, 96vw);
+  height: min(72vh, 720px);
+  background: var(--sma-panel);
+  color: var(--sma-text);
+  border: 1px solid var(--sma-border);
+  border-radius: 12px;
+  box-shadow: var(--sma-shadow);
+  z-index: 2147483647;
+  overflow-y: auto;
+  transition: transform .18s ease, opacity .18s ease;
+}
+.sma-popup-top.open {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  pointer-events: auto;
+}
+
+/* 顶部栏 */
+.sma-top-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #120c09;
+  border-bottom: 1px solid var(--sma-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.sma-top-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--sma-accent);
+}
+.sma-top-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* 内容 */
+.sma-top-body { padding: 12px; }
+
+/* 区块 */
+.sma-section {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--sma-border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.4);
+}
+
+.sma-section h3 {
+  margin-top: 0;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--sma-accent);
+}
+
+/* 行内小字 */
+.sma-inline {
+  font-size: 12px;
+  opacity: .85;
+  margin: 4px 0 8px 0;
+}
+
+/* 按钮组/按钮 */
+.sma-btns { margin-top: 6px; }
+.sma-btn {
+  background: var(--sma-accent);
+  color: #1a120e;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin: 4px 6px 6px 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sma-btn:hover { background: #d4b07c; }
+
+/* 输入控件 */
+.sma-section input[type="text"],
+.sma-section input[type="file"],
+.sma-section input[type="number"],
+.sma-section input[type="range"],
+.sma-section select {
+  background: #1f1a17;
+  border: 1px solid var(--sma-border);
+  border-radius: 6px;
+  padding: 6px;
+  color: var(--sma-text);
+  width: calc(100% - 12px);
+  margin-top: 6px;
+}
+
+/* 预览与输出 */
+#imagePreview {
+  max-width: 100%;
+  border-radius: 8px;
+  margin-top: 8px;
+  border: 1px solid var(--sma-border);
+}
+.sma-output {
+  background: #1a120e;
+  border: 1px solid var(--sma-border);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.sma-output.ok { border-color: #4caf50; }
+.sma-output.err { border-color: #e57373; }
+
+/* 注入输入框高亮 */
+#send_textarea.sma-injected {
+  outline: 2px solid var(--sma-accent);
+  outline-offset: 2px;
+  transition: outline-color .18s ease;
+}
+
+/* 手机端调优 */
+@media (max-width: 768px) {
+  .sma-popup-top {
+    top: 50px;
+    width: 96vw;
+    height: 72vh;
+  }
+}

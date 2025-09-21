@@ -1,0 +1,10 @@
+{
+  "display_name": "Smart Media Assistant",
+  "version": "1.0.0",
+  "author": "宗改自ctrl的同层手机",
+  "homepage": "",
+  "loading_order": 50,
+  "js": "index.js",
+  "css": "style.css",
+  "description": "智能媒体助手：支持图片/文档上传处理，调用 Google Gemini 与 Kimi API，并将结果注入输入框"
+}

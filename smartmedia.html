@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartMedia Assistant</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #1e1b1a;
+      color: #eee;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .sma-section {
+      background: #2d2625;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .sma-section h3 {
+      margin-top: 0;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+    }
+    .sma-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .sma-btn {
+      background: #3c302e;
+      color: #eee;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .sma-btn:hover {
+      background: #5a4442;
+    }
+    input, select {
+      width: 100%;
+      padding: 6px;
+      margin-top: 6px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #262222;
+      color: #eee;
+    }
+    .sma-output {
+      background: #111;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 10px;
+      min-height: 60px;
+      white-space: pre-wrap;
+    }
+    img {
+      max-width: 100%;
+      margin-top: 10px;
+      border-radius: 10px;
+      display: none;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    .sma-inline {
+      margin: 6px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>SmartMedia Assistant</h1>
+
+  <!-- 🧾 状态输出 -->
+  <div class="sma-section">
+    <h3>状态输出</h3>
+    <div id="status" class="sma-output">等待操作...</div>
+  </div>
+
+  <!-- 🖼️ 图片上传 -->
+  <div class="sma-section">
+    <h3>图片上传</h3>
+    <input type="file" id="imageInput" accept="image/*" style="display:none;">
+    <input type="text" id="imageUrl" placeholder="或输入图片 URL">
+    <div class="sma-btns">
+      <button class="sma-btn" id="chooseImageBtn">选择本地图片</button>
+      <button class="sma-btn" id="loadImageBtn">加载URL</button>
+      <button class="sma-btn" id="processImageBtn">本地处理</button>
+      <button class="sma-btn" id="recognizeImageBtn">使用API识别</button>
+      <button class="sma-btn" id="injectImageBtn">注入识图结果</button>
+      <button class="sma-btn" id="injectImageLinkBtn">注入图片链接</button>
+    </div>
+    <img id="imagePreview" alt="预览">
+  </div>
+
+  <!-- 📄 文件上传 -->
+  <div class="sma-section">
+    <h3>文件上传</h3>
+    <input type="file" id="docInput" accept=".txt,.json,.md,.html,.xml,.csv" style="display:none;">
+    <div class="sma-btns">
+      <button class="sma-btn" id="chooseDocBtn">选择本地文件</button>
+      <button class="sma-btn" id="processDocBtn">处理文档</button>
+      <button class="sma-btn" id="recognizeDocBtn">使用API识别</button>
+      <button class="sma-btn" id="injectDocBtn">注入输入框</button>
+    </div>
+  </div>
+
+  <!-- 🌐 API 配置（合并 Google / Kimi） -->
+  <div class="sma-section">
+    <h3>API 配置</h3>
+
+    <label for="apiSource">选择 API 源</label>
+    <select id="apiSource">
+      <option value="google">Google Gemini</option>
+      <option value="kimi">Kimi / Moonshot</option>
+    </select>
+
+    <!-- Google 设置 -->
+    <div class="sma-sub">
+      <label>Google API Key
+        <input type="text" id="googleKey" placeholder="输入 Google API Key">
+      </label>
+      <div class="sma-btns">
+        <button class="sma-btn" id="fetchGoogleModels">拉取模型</button>
+        <button class="sma-btn" id="testGoogleApi">测试 API</button>
+      </div>
+      <select id="googleModel">
+        <option value="">（默认 gemini-2.0-flash）</option>
+      </select>
+    </div>
+
+    <!-- Kimi 设置 -->
+    <div class="sma-sub">
+      <label>Kimi API Key
+        <input type="text" id="kimiKey" placeholder="输入 Kimi API Key">
+      </label>
+      <div class="sma-btns">
+        <button class="sma-btn" id="fetchKimiModels">拉取模型</button>
+        <button class="sma-btn" id="testKimiApi">测试 API</button>
+      </div>
+      <select id="kimiModel">
+        <option value="">（请选择模型）</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ⚙️ 插件设置（在最底部） -->
+  <div class="sma-section">
+    <h3>插件设置</h3>
+    <label>图片质量 (0.1 - 1.0)
+      <input type="range" id="imageQuality" min="0.1" max="1.0" step="0.05" value="0.85">
+    </label>
+    <div class="sma-inline">当前质量：<span id="imageQualityValue">0.85</span></div>
+
+    <label>最大边长 (px)
+      <input type="range" id="maxImageDimension" min="256" max="2048" step="64" value="1024">
+    </label>
+    <div class="sma-inline">当前最大边长：<span id="maxImageDimensionValue">1024</span> px</div>
+
+    <label>单个文件大小上限 (MB)
+      <input type="number" id="maxFileSize" min="1" max="64" step="1" value="16">
+    </label>
+  </div>
+</body>
+</html>
