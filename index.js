@@ -469,7 +469,7 @@ async function saveBase64AsLink(base64, filename = 'image.jpg') {
         if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
         let data={raw:txt}; try{ data=JSON.parse(txt); }catch{}
         const content = extractContentFromChatCompletions(data, txt);
-        setStatus('<识图>' + content + '</识图>', true);
+        setStatus('<shitu>' + content + '</shitu>', true);
         return data;
       } else {
         const key = val('#kimiKey').trim();
@@ -500,7 +500,7 @@ async function saveBase64AsLink(base64, filename = 'image.jpg') {
         if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
         let data={raw:txt}; try{ data=JSON.parse(txt); }catch{}
         const content = extractContentFromChatCompletions(data, txt);
-        setStatus('<识图>' + content + '</识图>', true);
+        setStatus('<shitu>' + content + '</shitu>', true);
         return data;
       }
     }catch(e){
@@ -538,7 +538,7 @@ async function saveBase64AsLink(base64, filename = 'image.jpg') {
         if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
         let data={raw:txt}; try{ data=JSON.parse(txt); }catch{}
         const content = extractContentFromChatCompletions(data, txt);
-        setStatus('<识文>' + content + '</识文>', true);
+        setStatus('<shiwen>' + content + '</shiwen>', true);
         return data;
       } else {
         const key = val('#kimiKey').trim();
@@ -566,7 +566,7 @@ async function saveBase64AsLink(base64, filename = 'image.jpg') {
         if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
         let data={raw:txt}; try{ data=JSON.parse(txt); }catch{}
         const content = extractContentFromChatCompletions(data, txt);
-        setStatus('<识文>' + content + '</识文>', true);
+        setStatus('<shiwen>' + content + '</shiwen>', true);
         return data;
       }
     }catch(e){
