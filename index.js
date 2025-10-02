@@ -70,7 +70,7 @@ function initSmartMediaUI_FullReal() {
         </div>
       </div>
 
-      <!-- 🌐 API 配置区（合并 Google + Kimi） -->
+      <!-- 🌐 API 配置区（合并 Google + Kimi + 自定义） -->
       <div class="sma-section">
         <h3>API 配置</h3>
 
@@ -78,6 +78,7 @@ function initSmartMediaUI_FullReal() {
         <select id="apiSource">
           <option value="google">Google Gemini</option>
           <option value="kimi">Kimi / Moonshot</option>
+          <option value="custom">自定义 API</option>
         </select>
 
         <!-- Google 设置 -->
@@ -104,6 +105,23 @@ function initSmartMediaUI_FullReal() {
             <button class="sma-btn" id="testKimiApi">测试 API</button>
           </div>
           <select id="kimiModel">
+            <option value="">（请选择模型）</option>
+          </select>
+        </div>
+
+        <!-- Custom API 设置 -->
+        <div class="sma-sub">
+          <label>自定义 API URL
+            <input type="text" id="customUrl" placeholder="输入 API 基础 URL">
+          </label>
+          <label>自定义 API Key
+            <input type="text" id="customKey" placeholder="输入 API Key">
+          </label>
+          <div class="sma-btns">
+            <button class="sma-btn" id="fetchCustomModels">拉取模型</button>
+            <button class="sma-btn" id="testCustomApi">测试 API</button>
+          </div>
+          <select id="customModel">
             <option value="">（请选择模型）</option>
           </select>
         </div>
@@ -148,54 +166,59 @@ function initSmartMediaUI_FullReal() {
   closeBtn.addEventListener('click', closePopup);
 
   // ========== 常量与工具 ==========
-  const GOOGLE_OPENAI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai/';
-  const KIMI_BASE = 'https://api.moonshot.cn/v1/';
+const GOOGLE_OPENAI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai/';
+const KIMI_BASE = 'https://api.moonshot.cn/v1/';
 
-  function setStatus(msg, ok=null) {
-    const el = document.getElementById('status');
-    el.textContent = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
-    if (ok === true) { el.classList.add('ok'); el.classList.remove('err'); }
-    else if (ok === false) { el.classList.add('err'); el.classList.remove('ok'); }
-    else { el.classList.remove('ok','err'); }
-  }
+function setStatus(msg, ok=null) {
+  const el = document.getElementById('status');
+  el.textContent = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
+  if (ok === true) { el.classList.add('ok'); el.classList.remove('err'); }
+  else if (ok === false) { el.classList.add('err'); el.classList.remove('ok'); }
+  else { el.classList.remove('ok','err'); }
+}
 
-  function saveConfig() {
-    const cfg = {
-      apiSource: val('#apiSource'),
-      googleKey: val('#googleKey'),
-      googleModel: val('#googleModel'),
-      kimiKey: val('#kimiKey'),
-      kimiModel: val('#kimiModel'),
-      imageQuality: val('#imageQuality'),
-      maxImageDimension: val('#maxImageDimension'),
-      maxFileSize: val('#maxFileSize')
-    };
-    localStorage.setItem('apiConfig', JSON.stringify(cfg));
-  }
-  function restoreConfig() {
+function saveConfig() {
+  const cfg = {
+    apiSource: val('#apiSource'),
+    googleKey: val('#googleKey'),
+    googleModel: val('#googleModel'),
+    kimiKey: val('#kimiKey'),
+    kimiModel: val('#kimiModel'),
+    customUrl: val('#customUrl'),
+    customKey: val('#customKey'),
+    customModel: val('#customModel'),
+    imageQuality: val('#imageQuality'),
+    maxImageDimension: val('#maxImageDimension'),
+    maxFileSize: val('#maxFileSize')
+  };
+  localStorage.setItem('apiConfig', JSON.stringify(cfg));
+}
+
+function restoreConfig() {
   try {
     const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
     for (const [k,v] of Object.entries(cfg)) {
       const el = popup.querySelector('#'+k);
       if (el != null && typeof v !== 'undefined') {
-  // 如果是模型选择框，但当前下拉框没有这个值 → 自动补充一个 option
-  if ((k === 'googleModel' || k === 'kimiModel') && v && ![...el.options].some(o => o.value === v)) {
-    const opt = document.createElement('option');
-    opt.value = v;
-    opt.textContent = v + '（已保存）';
-    el.appendChild(opt);
-  }
-  el.value = v;
-  el.dispatchEvent(new Event('change', { bubbles: true }));
-}
+        // 如果是模型选择框，但当前下拉框没有这个值 → 自动补充一个 option
+        if ((k === 'googleModel' || k === 'kimiModel' || k === 'customModel') && v && ![...el.options].some(o => o.value === v)) {
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v + '（已保存）';
+          el.appendChild(opt);
+        }
+        el.value = v;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
     }
     $('#imageQualityValue').text($('#imageQuality').val());
     $('#maxImageDimensionValue').text($('#maxImageDimension').val());
   } catch {}
 }  
-  function val(sel){ const e = popup.querySelector(sel); return e ? e.value : ''; }
-  function bytesToMB(b){ return (b/1048576).toFixed(2); }
-  // --- base64 -> 链接工具函数 ---
+
+function val(sel){ const e = popup.querySelector(sel); return e ? e.value : ''; }
+function bytesToMB(b){ return (b/1048576).toFixed(2); }
+// --- base64 -> 链接工具函数 ---
 
 function getStringHash(str) {
   let hash = 0;
@@ -218,395 +241,475 @@ async function saveBase64AsLink(base64, filename = 'image.jpg') {
   const url = await saveBase64AsFile(base64Data, characterName, fileNamePrefix, extension);
   return url;
 }
-  // 监听设置变化
-  popup.querySelector('#imageQuality').addEventListener('input', (e)=>{
-    popup.querySelector('#imageQualityValue').textContent = e.target.value;
-    saveConfig();
-  });
-  popup.querySelector('#maxImageDimension').addEventListener('input', (e)=>{
-    popup.querySelector('#maxImageDimensionValue').textContent = e.target.value;
-    saveConfig();
-  });
-  popup.querySelector('#maxFileSize').addEventListener('change', saveConfig);
-  popup.querySelector('#apiSource').addEventListener('change', saveConfig);
 
-  // ---- 新增：显式“选择本地图片/文件”按钮 ----
-  popup.querySelector('#chooseImageBtn').addEventListener('click', ()=>{
-    popup.querySelector('#imageInput').click();
-  });
-  popup.querySelector('#chooseDocBtn').addEventListener('click', ()=>{
-    popup.querySelector('#docInput').click();
-  });
+// 监听设置变化
+popup.querySelector('#imageQuality').addEventListener('input', (e)=>{
+  popup.querySelector('#imageQualityValue').textContent = e.target.value;
+  saveConfig();
+});
+popup.querySelector('#maxImageDimension').addEventListener('input', (e)=>{
+  popup.querySelector('#maxImageDimensionValue').textContent = e.target.value;
+  saveConfig();
+});
+popup.querySelector('#maxFileSize').addEventListener('change', saveConfig);
+popup.querySelector('#apiSource').addEventListener('change', saveConfig);
 
-  // 文件选择后提示
-  popup.querySelector('#imageInput').addEventListener('change', (e)=>{
-    const f = e.target.files && e.target.files[0];
-    if (f) setStatus(`已选择图片：${f.name}（${bytesToMB(f.size)} MB）`, true);
-  });
-  popup.querySelector('#docInput').addEventListener('change', (e)=>{
-    const f = e.target.files && e.target.files[0];
-    if (f) setStatus(`已选择文件：${f.name}（${bytesToMB(f.size)} MB）`, true);
-  });
+// 自定义 API 输入框监听
+popup.querySelector('#customUrl').addEventListener('change', saveConfig);
+popup.querySelector('#customKey').addEventListener('change', saveConfig);
+popup.querySelector('#customModel').addEventListener('change', saveConfig);
+
+// ---- 新增：显式“选择本地图片/文件”按钮 ----
+popup.querySelector('#chooseImageBtn').addEventListener('click', ()=>{
+  popup.querySelector('#imageInput').click();
+});
+popup.querySelector('#chooseDocBtn').addEventListener('click', ()=>{
+  popup.querySelector('#docInput').click();
+});
+
+// 文件选择后提示
+popup.querySelector('#imageInput').addEventListener('change', (e)=>{
+  const f = e.target.files && e.target.files[0];
+  if (f) setStatus(`已选择图片：${f.name}（${bytesToMB(f.size)} MB）`, true);
+});
+popup.querySelector('#docInput').addEventListener('change', (e)=>{
+  const f = e.target.files && e.target.files[0];
+  if (f) setStatus(`已选择文件：${f.name}（${bytesToMB(f.size)} MB）`, true);
+});
 
   // ========== 处理器 ==========
-  // 图片处理器（压缩/等比缩放 => base64）
-  class ImageProcessor {
-    static processImage(fileOrUrl){
-      return new Promise((resolve,reject)=>{
-        const img=new Image(); img.crossOrigin='anonymous';
-        img.onload=()=>{
-          let w=img.width, h=img.height;
-          const maxDim=parseInt(val('#maxImageDimension')||'1024',10);
-          if(w>maxDim || h>maxDim){
-            if(w>=h){ h = Math.round(h*maxDim/w); w = maxDim; }
-            else { w = Math.round(w*maxDim/h); h = maxDim; }
-          }
-          const canvas=document.createElement('canvas');
-          canvas.width=w; canvas.height=h;
-          const ctx=canvas.getContext('2d');
-          ctx.drawImage(img,0,0,w,h);
-          const quality=parseFloat(val('#imageQuality')||'0.85');
-          const base64=canvas.toDataURL('image/jpeg', quality);
-          resolve({ success:true, width:w, height:h, base64 });
-        };
-        img.onerror=()=>reject(new Error('图片加载失败'));
-        try{
-          if (typeof fileOrUrl === 'string') {
-            img.src = fileOrUrl;
-          } else {
-            img.src = URL.createObjectURL(fileOrUrl);
-          }
-        }catch(e){ reject(e); }
-      });
-    }
-  }
-
-  // 文档处理器（文本读取）
-  class DocumentProcessor {
-    static processDocument(file){
-      return new Promise((resolve,reject)=>{
-        const maxMB = parseFloat(val('#maxFileSize')||'16');
-        if (file.size > maxMB*1048576) {
-          reject(new Error(`文件过大：${bytesToMB(file.size)} MB（上限 ${maxMB} MB）`));
-          return;
+// 图片处理器（压缩/等比缩放 => base64）
+class ImageProcessor {
+  static processImage(fileOrUrl){
+    return new Promise((resolve,reject)=>{
+      const img=new Image(); img.crossOrigin='anonymous';
+      img.onload=()=>{
+        let w=img.width, h=img.height;
+        const maxDim=parseInt(val('#maxImageDimension')||'1024',10);
+        if(w>maxDim || h>maxDim){
+          if(w>=h){ h = Math.round(h*maxDim/w); w = maxDim; }
+          else { w = Math.round(w*maxDim/h); h = maxDim; }
         }
-        const reader=new FileReader();
-        reader.onload = e => resolve({ success:true, content: String(e.target.result || '') });
-        reader.onerror = () => reject(new Error('文件读取失败'));
-        reader.readAsText(file, 'utf-8');
-      });
-    }
-  }
-
-  // ========== 模型拉取 ==========
-  async function fetchGoogleModels(){
-    try{
-      const key = val('#googleKey').trim();
-      if(!key) throw new Error('请填写 Google API Key');
-      const res = await fetch(GOOGLE_OPENAI_BASE + 'models', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer ' + key }
-      });
-      const txt = await res.text();
-      let data = {};
-      try{ data = JSON.parse(txt); }catch{}
-      if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
-      const list = Array.isArray(data.data) ? data.data : [];
-      if(!list.length) throw new Error('无模型响应：' + txt);
-
-      const sel = popup.querySelector('#googleModel');
-      sel.innerHTML = `<option value="">（默认 gemini-2.0-flash）</option>`;
-      list.forEach(m=>{
-        const id = m.id || m.name || '';
-        if(!id) return;
-        const opt = document.createElement('option');
-        opt.value = id; opt.textContent = id;
-        sel.appendChild(opt);
-      });
-      saveConfig();
-      setStatus('✅ Google 模型已更新', true);
-    }catch(e){
-      setStatus('❌ 拉取 Google 模型失败：' + e.message, false);
-    }
-  }
-
-  async function fetchKimiModels(){
-    try{
-      const key = val('#kimiKey').trim();
-      if(!key) throw new Error('请填写 Kimi API Key');
-      const res = await fetch(KIMI_BASE + 'models', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer ' + key }
-      });
-      const txt = await res.text();
-      let data = {};
-      try{ data = JSON.parse(txt); }catch{}
-      if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
-      const list = Array.isArray(data.data) ? data.data : [];
-      if(!list.length) throw new Error('无模型响应：' + txt);
-
-      const sel = popup.querySelector('#kimiModel');
-      sel.innerHTML = `<option value="">（请选择模型）</option>`;
-      list.forEach(m=>{
-        const id = m.id || m.name || '';
-        if(!id) return;
-        const opt = document.createElement('option');
-        opt.value = id; opt.textContent = id;
-        sel.appendChild(opt);
-      });
-      saveConfig();
-      setStatus('✅ Kimi 模型已更新', true);
-    }catch(e){
-      setStatus('❌ 拉取 Kimi 模型失败：' + e.message, false);
-    }
-  }
-
-  // ========== API 测试 ==========
-  async function testGoogleApi(){
-    try{
-      const key = val('#googleKey').trim();
-      if(!key) throw new Error('请填写 Google API Key');
-      const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
-      const model = val('#googleModel') || cfg.googleModel || 'gemini-2.0-flash';
-      const url = GOOGLE_OPENAI_BASE + 'chat/completions';
-      const body = {
-        model,
-        messages: [{ role:'user', content:'ping' }]
+        const canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        const quality=parseFloat(val('#imageQuality')||'0.85');
+        const base64=canvas.toDataURL('image/jpeg', quality);
+        resolve({ success:true, width:w, height:h, base64 });
       };
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{
-          'Authorization':'Bearer ' + key,
-          'Content-Type':'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-      const txt = await res.text();
-      if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
-      let data = {}; try{ data = JSON.parse(txt); }catch{}
-      const content = data?.choices?.[0]?.message?.content || txt;
-      setStatus('✅ Google 测试成功：\n' + content, true);
-    }catch(e){
-      setStatus('❌ Google 测试失败：' + e.message, false);
-    }
+      img.onerror=()=>reject(new Error('图片加载失败'));
+      try{
+        if (typeof fileOrUrl === 'string') {
+          img.src = fileOrUrl;
+        } else {
+          img.src = URL.createObjectURL(fileOrUrl);
+        }
+      }catch(e){ reject(e); }
+    });
   }
+}
 
-  async function testKimiApi(){
-    try{
-      const key = val('#kimiKey').trim();
-      if(!key) throw new Error('请填写 Kimi API Key');
-      const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
-      const model = val('#kimiModel') || cfg.kimiModel;
-      if(!model) throw new Error('请选择 Kimi 模型');
-      const url = KIMI_BASE + 'chat/completions';
-      const body = {
-        model,
-        messages: [{ role:'user', content:'ping' }]
-      };
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{
-          'Authorization':'Bearer ' + key,
-          'Content-Type':'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-      const txt = await res.text();
-      if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
-      let data = {}; try{ data = JSON.parse(txt); }catch{}
-      const content = data?.choices?.[0]?.message?.content || txt;
-      setStatus('✅ Kimi 测试成功：\n' + content, true);
-    }catch(e){
-      setStatus('❌ Kimi 测试失败：' + e.message, false);
-    }
+// 文档处理器（文本读取）
+class DocumentProcessor {
+  static processDocument(file){
+    return new Promise((resolve,reject)=>{
+      const maxMB = parseFloat(val('#maxFileSize')||'16');
+      if (file.size > maxMB*1048576) {
+        reject(new Error(`文件过大：${bytesToMB(file.size)} MB（上限 ${maxMB} MB）`));
+        return;
+      }
+      const reader=new FileReader();
+      reader.onload = e => resolve({ success:true, content: String(e.target.result || '') });
+      reader.onerror = () => reject(new Error('文件读取失败'));
+      reader.readAsText(file, 'utf-8');
+    });
   }
+}
+
+// ========== 模型拉取 ==========
+async function fetchGoogleModels(){
+  try{
+    const key = val('#googleKey').trim();
+    if(!key) throw new Error('请填写 Google API Key');
+    const res = await fetch(GOOGLE_OPENAI_BASE + 'models', {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + key }
+    });
+    const txt = await res.text();
+    let data = {};
+    try{ data = JSON.parse(txt); }catch{}
+    if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
+    const list = Array.isArray(data.data) ? data.data : [];
+    if(!list.length) throw new Error('无模型响应：' + txt);
+
+    const sel = popup.querySelector('#googleModel');
+    sel.innerHTML = `<option value="">（默认 gemini-2.0-flash）</option>`;
+    list.forEach(m=>{
+      const id = m.id || m.name || '';
+      if(!id) return;
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = id;
+      sel.appendChild(opt);
+    });
+    saveConfig();
+    setStatus('✅ Google 模型已更新', true);
+  }catch(e){
+    setStatus('❌ 拉取 Google 模型失败：' + e.message, false);
+  }
+}
+
+async function fetchKimiModels(){
+  try{
+    const key = val('#kimiKey').trim();
+    if(!key) throw new Error('请填写 Kimi API Key');
+    const res = await fetch(KIMI_BASE + 'models', {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + key }
+    });
+    const txt = await res.text();
+    let data = {};
+    try{ data = JSON.parse(txt); }catch{}
+    if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
+    const list = Array.isArray(data.data) ? data.data : [];
+    if(!list.length) throw new Error('无模型响应：' + txt);
+
+    const sel = popup.querySelector('#kimiModel');
+    sel.innerHTML = `<option value="">（请选择模型）</option>`;
+    list.forEach(m=>{
+      const id = m.id || m.name || '';
+      if(!id) return;
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = id;
+      sel.appendChild(opt);
+    });
+    saveConfig();
+    setStatus('✅ Kimi 模型已更新', true);
+  }catch(e){
+    setStatus('❌ 拉取 Kimi 模型失败：' + e.message, false);
+  }
+}
+
+async function fetchCustomModels(){
+  try{
+    const url = val('#customUrl').trim();
+    const key = val('#customKey').trim();
+    if(!url) throw new Error('请填写自定义 API 地址');
+    if(!key) throw new Error('请填写自定义 API Key');
+    const res = await fetch(url.replace(/\/+$/,'') + '/models', {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + key }
+    });
+    const txt = await res.text();
+    let data = {};
+    try{ data = JSON.parse(txt); }catch{}
+    if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
+    const list = Array.isArray(data.data) ? data.data : [];
+    if(!list.length) throw new Error('无模型响应：' + txt);
+
+    const sel = popup.querySelector('#customModel');
+    sel.innerHTML = `<option value="">（请选择模型）</option>`;
+    list.forEach(m=>{
+      const id = m.id || m.name || '';
+      if(!id) return;
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = id;
+      sel.appendChild(opt);
+    });
+    saveConfig();
+    setStatus('✅ 自定义模型已更新', true);
+  }catch(e){
+    setStatus('❌ 拉取自定义模型失败：' + e.message, false);
+  }
+}
+
+// ========== API 测试 ==========
+async function testGoogleApi(){
+  try{
+    const key = val('#googleKey').trim();
+    if(!key) throw new Error('请填写 Google API Key');
+    const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
+    const model = val('#googleModel') || cfg.googleModel || 'gemini-2.0-flash';
+    const url = GOOGLE_OPENAI_BASE + 'chat/completions';
+    const body = {
+      model,
+      messages: [{ role:'user', content:'ping' }]
+    };
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{
+        'Authorization':'Bearer ' + key,
+        'Content-Type':'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    const txt = await res.text();
+    if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
+    let data = {}; try{ data = JSON.parse(txt); }catch{}
+    const content = data?.choices?.[0]?.message?.content || txt;
+    setStatus('✅ Google 测试成功：\n' + content, true);
+  }catch(e){
+    setStatus('❌ Google 测试失败：' + e.message, false);
+  }
+}
+
+async function testKimiApi(){
+  try{
+    const key = val('#kimiKey').trim();
+    if(!key) throw new Error('请填写 Kimi API Key');
+    const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
+    const model = val('#kimiModel') || cfg.kimiModel;
+    if(!model) throw new Error('请选择 Kimi 模型');
+    const url = KIMI_BASE + 'chat/completions';
+    const body = {
+      model,
+      messages: [{ role:'user', content:'ping' }]
+    };
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{
+        'Authorization':'Bearer ' + key,
+        'Content-Type':'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    const txt = await res.text();
+    if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
+    let data = {}; try{ data = JSON.parse(txt); }catch{}
+    const content = data?.choices?.[0]?.message?.content || txt;
+    setStatus('✅ Kimi 测试成功：\n' + content, true);
+  }catch(e){
+    setStatus('❌ Kimi 测试失败：' + e.message, false);
+  }
+}
+
+async function testCustomApi(){
+  try{
+    const url = val('#customUrl').trim().replace(/\/+$/,'');
+    const key = val('#customKey').trim();
+    if(!url) throw new Error('请填写自定义 API 地址');
+    if(!key) throw new Error('请填写自定义 API Key');
+    const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
+    const model = val('#customModel') || cfg.customModel;
+    if(!model) throw new Error('请选择自定义模型');
+    const body = {
+      model,
+      messages: [{ role:'user', content:'ping' }]
+    };
+    const res = await fetch(url + '/chat/completions', {
+      method:'POST',
+      headers:{
+        'Authorization':'Bearer ' + key,
+        'Content-Type':'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    const txt = await res.text();
+    if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
+    let data = {}; try{ data = JSON.parse(txt); }catch{}
+    const content = data?.choices?.[0]?.message?.content || txt;
+    setStatus('✅ 自定义 API 测试成功：\n' + content, true);
+  }catch(e){
+    setStatus('❌ 自定义 API 测试失败：' + e.message, false);
+  }
+}
 
   // ========== 识图与文档识别 ==========
-  // 统一提取文本内容
-  function extractContentFromChatCompletions(respObj, fallbackText='') {
-    try {
-      const c = respObj?.choices?.[0];
-      if (!c) return fallbackText || JSON.stringify(respObj, null, 2);
-      const msg = c.message;
-      if (typeof msg?.content === 'string') return msg.content;
-      if (Array.isArray(msg?.content)) {
-        // OpenAI OAI "content" 数组可能包含多段
-        const texts = msg.content.filter(x=>x?.type==='text').map(x=>x.text).filter(Boolean);
-        if (texts.length) return texts.join('\n');
-        return JSON.stringify(msg.content, null, 2);
-      }
-      return JSON.stringify(respObj, null, 2);
-    } catch {
-      return fallbackText || JSON.stringify(respObj, null, 2);
+// 统一提取文本内容
+function extractContentFromChatCompletions(respObj, fallbackText='') {
+  try {
+    const c = respObj?.choices?.[0];
+    if (!c) return fallbackText || JSON.stringify(respObj, null, 2);
+    const msg = c.message;
+    if (typeof msg?.content === 'string') return msg.content;
+    if (Array.isArray(msg?.content)) {
+      // OpenAI OAI "content" 数组可能包含多段
+      const texts = msg.content.filter(x=>x?.type==='text').map(x=>x.text).filter(Boolean);
+      if (texts.length) return texts.join('\n');
+      return JSON.stringify(msg.content, null, 2);
     }
+    return JSON.stringify(respObj, null, 2);
+  } catch {
+    return fallbackText || JSON.stringify(respObj, null, 2);
   }
+}
 
-  async function recognizeImageFromAPI(base64){
-    const api = val('#apiSource');
-    try{
-      if(api === 'google'){
-        const key = val('#googleKey').trim();
-        if(!key) throw new Error('请填写 Google API Key');
-        const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
-        const model = val('#googleModel') || cfg.googleModel || 'gemini-2.0-flash';
-        const url = GOOGLE_OPENAI_BASE + 'chat/completions';
-        const messages = [{
-          role: 'user',
-          content: [
-            { type:'text', text:'请描述这张图片的内容，并提取关键信息。' },
-            { type:'image_url', image_url: { url: base64 } }
-          ]
-        }];
-        const res = await fetch(url, {
-          method:'POST',
-          headers:{
-            'Authorization':'Bearer ' + key,
-            'Content-Type':'application/json'
-          },
-          body: JSON.stringify({ model, messages })
-        });
-        const txt = await res.text();
-        if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
-        let data={raw:txt}; try{ data=JSON.parse(txt); }catch{}
-        const content = extractContentFromChatCompletions(data, txt);
-        setStatus('<shitu>' + content + '</shitu>', true);
-        return data;
-      } else {
-        const key = val('#kimiKey').trim();
-        if(!key) throw new Error('请填写 Kimi API Key');
-        const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
-        const model = val('#kimiModel') || cfg.kimiModel;
-        if(!model) throw new Error('请选择 Kimi 模型');
-        const url = KIMI_BASE + 'chat/completions';
-        const body = {
-          model,
-          messages: [{
-            role:'user',
-            content: [
-              { type:'text', text:'请描述这张图片的内容，并提取关键信息。' },
-              { type:'image_url', image_url: { url: base64 } }
-            ]
-          }]
-        };
-        const res = await fetch(url, {
-          method:'POST',
-          headers:{
-            'Authorization':'Bearer ' + key,
-            'Content-Type':'application/json'
-          },
-          body: JSON.stringify(body)
-        });
-        const txt = await res.text();
-        if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
-        let data={raw:txt}; try{ data=JSON.parse(txt); }catch{}
-        const content = extractContentFromChatCompletions(data, txt);
-        setStatus('<shitu>' + content + '</shitu>', true);
-        return data;
-      }
-    }catch(e){
-      setStatus('❌ 图片识别失败：' + e.message, false);
-      throw e;
-    }
-  }
+async function recognizeImageFromAPI(base64) {
+  const api = val('#apiSource');
+  try {
+    let key, model, url, body;
+    const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
 
-  async function recognizeDocFromAPI(text){
-    const api = val('#apiSource');
-    try{
-      const contentTrunc = text.length > 20000 ? text.slice(0,20000) : text; // 防止超长
-      if(api === 'google'){
-        const key = val('#googleKey').trim();
-        if(!key) throw new Error('请填写 Google API Key');
-        const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
-        const model = val('#googleModel') || cfg.googleModel || 'gemini-2.0-flash';
-        const url = GOOGLE_OPENAI_BASE + 'chat/completions';
-        const body = {
-          model,
-          messages: [
-            { role:'system', content: '你是一个擅长从文档中提取要点与结构化信息的助手。' },
-            { role:'user', content: `请总结并抽取要点：\n\n${contentTrunc}` }
-          ]
-        };
-        const res = await fetch(url, {
-          method:'POST',
-          headers:{
-            'Authorization':'Bearer ' + key,
-            'Content-Type':'application/json'
-          },
-          body: JSON.stringify(body)
-        });
-        const txt = await res.text();
-        if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
-        let data={raw:txt}; try{ data=JSON.parse(txt); }catch{}
-        const content = extractContentFromChatCompletions(data, txt);
-        setStatus('<shiwen>' + content + '</shiwen>', true);
-        return data;
-      } else {
-        const key = val('#kimiKey').trim();
-        if(!key) throw new Error('请填写 Kimi API Key');
-        const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
-        const model = val('#kimiModel') || cfg.kimiModel;
-        if(!model) throw new Error('请选择 Kimi 模型');
-        const url = KIMI_BASE + 'chat/completions';
-        const body = {
-          model,
-          messages: [
-            { role:'system', content: '你是一个擅长从文档中提取要点与结构化信息的助手。' },
-            { role:'user', content: `请总结并抽取要点：\n\n${contentTrunc}` }
-          ]
-        };
-        const res = await fetch(url, {
-          method:'POST',
-          headers:{
-            'Authorization':'Bearer ' + key,
-            'Content-Type':'application/json'
-          },
-          body: JSON.stringify(body)
-        });
-        const txt = await res.text();
-        if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
-        let data={raw:txt}; try{ data=JSON.parse(txt); }catch{}
-        const content = extractContentFromChatCompletions(data, txt);
-        setStatus('<shiwen>' + content + '</shiwen>', true);
-        return data;
-      }
-    }catch(e){
-      setStatus('❌ 文档识别失败：' + e.message, false);
-      throw e;
-    }
-  }
-
-  // ========== UI 交互绑定 ==========
-  // 图片：URL 预览
-  popup.querySelector('#loadImageBtn').addEventListener('click', ()=>{
-    const url = val('#imageUrl');
-    if(url){
-      const img = popup.querySelector('#imagePreview');
-      img.src = url; img.style.display='block';
-      setStatus('已加载图片URL', true);
+    if (api === 'google') {
+      key = val('#googleKey').trim();
+      if (!key) throw new Error('请填写 Google API Key');
+      model = val('#googleModel') || cfg.googleModel || 'gemini-2.0-flash';
+      url = GOOGLE_OPENAI_BASE + 'chat/completions';
+    } else if (api === 'kimi') {
+      key = val('#kimiKey').trim();
+      if (!key) throw new Error('请填写 Kimi API Key');
+      model = val('#kimiModel') || cfg.kimiModel;
+      if (!model) throw new Error('请选择 Kimi 模型');
+      url = KIMI_BASE + 'chat/completions';
+    } else if (api === 'custom') {
+      url = val('#customUrl').trim().replace(/\/+$/, '');
+      key = val('#customKey').trim();
+      if (!url) throw new Error('请填写自定义 API 地址');
+      if (!key) throw new Error('请填写自定义 API Key');
+      model = val('#customModel') || cfg.customModel;
+      if (!model) throw new Error('请选择自定义模型');
+      url = url + '/chat/completions';
     } else {
-      setStatus('请先输入图片 URL', false);
+      throw new Error('未知 API 源');
     }
-  });
 
-  // 图片：本地处理（压缩/缩放）
-  popup.querySelector('#processImageBtn').addEventListener('click', async ()=>{
-    const file = popup.querySelector('#imageInput').files[0];
-    const url = val('#imageUrl');
-    try{
-      if(!file && !url) throw new Error('请先选择图片或输入URL');
-      const result = await ImageProcessor.processImage(file || url);
-      const img = popup.querySelector('#imagePreview');
-      img.src = result.base64; img.style.display='block';
-      setStatus(`✅ 图片处理成功：${result.width}x${result.height}，base64 长度 ${result.base64.length}`, true);
-      saveConfig();
-    }catch(e){ setStatus('❌ 图片处理失败：' + e.message, false); }
-  });
+    body = {
+      model,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: '请描述这张图片的内容，并提取关键信息。' },
+          { type: 'image_url', image_url: { url: base64 } }
+        ]
+      }],
+      max_tokens: 20000
+    };
 
-  // 图片：API 识别
-  // 图片：API 识别
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    const txt = await res.text();
+    if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
+
+    let data = { raw: txt };
+    try { data = JSON.parse(txt); } catch { }
+
+    // ✅ 确保输出文字内容
+    let output = '';
+    if (data.choices && data.choices.length > 0) {
+      output = data.choices.map(c => c.message?.content || '').join('\n');
+      if (!output) output = '[未生成内容]';
+    } else {
+      output = '[未生成内容]';
+    }
+
+    setStatus('<shitu>' + output + '</shitu>', true);
+    return data;
+
+  } catch (e) {
+    setStatus('❌ 图片识别失败：' + e.message, false);
+    throw e;
+  }
+}
+
+async function recognizeDocFromAPI(text) {
+  const api = val('#apiSource');
+  try {
+    const contentTrunc = text.length > 20000 ? text.slice(0, 20000) : text; // 防止超长
+    let key, model, url, body;
+    const cfg = JSON.parse(localStorage.getItem('apiConfig') || '{}');
+
+    if (api === 'google') {
+      key = val('#googleKey').trim();
+      if (!key) throw new Error('请填写 Google API Key');
+      model = val('#googleModel') || cfg.googleModel || 'gemini-2.0-flash';
+      url = GOOGLE_OPENAI_BASE + 'chat/completions';
+    } else if (api === 'kimi') {
+      key = val('#kimiKey').trim();
+      if (!key) throw new Error('请填写 Kimi API Key');
+      model = val('#kimiModel') || cfg.kimiModel;
+      if (!model) throw new Error('请选择 Kimi 模型');
+      url = KIMI_BASE + 'chat/completions';
+    } else if (api === 'custom') {
+      url = val('#customUrl').trim().replace(/\/+$/, '');
+      key = val('#customKey').trim();
+      if (!url) throw new Error('请填写自定义 API 地址');
+      if (!key) throw new Error('请填写自定义 API Key');
+      model = val('#customModel') || cfg.customModel;
+      if (!model) throw new Error('请选择自定义模型');
+      url = url + '/chat/completions';
+    } else {
+      throw new Error('未知 API 源');
+    }
+
+    body = {
+      model,
+      messages: [
+        { role: 'system', content: '你是一个擅长从文档中提取要点与结构化信息的助手。' },
+        { role: 'user', content: `请总结并抽取要点：\n\n${contentTrunc}` }
+      ],
+      max_tokens: 20000
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    const txt = await res.text();
+    if (!res.ok) throw new Error(`HTTP ${res.status}：${txt}`);
+
+    let data = { raw: txt };
+    try { data = JSON.parse(txt); } catch { }
+
+    // ✅ 确保输出文字内容
+    let output = '';
+    if (data.choices && data.choices.length > 0) {
+      output = data.choices.map(c => c.message?.content || '').join('\n');
+      if (!output) output = '[未生成内容]';
+    } else {
+      output = '[未生成内容]';
+    }
+
+    setStatus('<shiwen>' + output + '</shiwen>', true);
+    return data;
+
+  } catch (e) {
+    setStatus('❌ 文档识别失败：' + e.message, false);
+    throw e;
+  }
+}
+
+// ========== UI 交互绑定 ==========
+// 图片：URL 预览
+popup.querySelector('#loadImageBtn').addEventListener('click', ()=>{
+  const url = val('#imageUrl');
+  if(url){
+    const img = popup.querySelector('#imagePreview');
+    img.src = url; img.style.display='block';
+    setStatus('已加载图片URL', true);
+  } else {
+    setStatus('请先输入图片 URL', false);
+  }
+});
+
+// 图片：本地处理（压缩/缩放）
+popup.querySelector('#processImageBtn').addEventListener('click', async ()=>{
+  const file = popup.querySelector('#imageInput').files[0];
+  const url = val('#imageUrl');
+  try{
+    if(!file && !url) throw new Error('请先选择图片或输入URL');
+    const result = await ImageProcessor.processImage(file || url);
+    const img = popup.querySelector('#imagePreview');
+    img.src = result.base64; img.style.display='block';
+    setStatus(`✅ 图片处理成功：${result.width}x${result.height}，base64 长度 ${result.base64.length}`, true);
+    saveConfig();
+  }catch(e){ setStatus('❌ 图片处理失败：' + e.message, false); }
+});
+
+// 图片：API 识别
 popup.querySelector('#recognizeImageBtn').addEventListener('click', async ()=>{
   try{
-    // 先拿到可用的 base64（优先本地压缩产物，否则直接读 file/URL）
     const file = popup.querySelector('#imageInput').files[0];
     const url = val('#imageUrl');
     let base64 = popup.querySelector('#imagePreview').src;
@@ -616,7 +719,7 @@ popup.querySelector('#recognizeImageBtn').addEventListener('click', async ()=>{
     if(!base64){
       const processed = await ImageProcessor.processImage(file || url);
       base64 = processed.base64;
-      const img = popup.querySelector('#imagePreview'); // 同步预览
+      const img = popup.querySelector('#imagePreview');
       img.src = base64; img.style.display='block';
     }
     await recognizeImageFromAPI(base64);
@@ -624,25 +727,23 @@ popup.querySelector('#recognizeImageBtn').addEventListener('click', async ()=>{
   }catch(e){ /* setStatus 已处理 */ }
 });
 
-  // 文档：API 识别
-  popup.querySelector('#recognizeDocBtn').addEventListener('click', async ()=>{
-    const file = popup.querySelector('#docInput').files[0];
-    if(!file){ setStatus('请先选择一个文件', false); return; }
-    try{
-      const result = await DocumentProcessor.processDocument(file);
-      await recognizeDocFromAPI(result.content);
-      saveConfig();
-    }catch(e){ /* setStatus 已处理 */ }
-  });
+// 文档：API 识别
+popup.querySelector('#recognizeDocBtn').addEventListener('click', async ()=>{
+  const file = popup.querySelector('#docInput').files[0];
+  if(!file){ setStatus('请先选择一个文件', false); return; }
+  try{
+    const result = await DocumentProcessor.processDocument(file);
+    await recognizeDocFromAPI(result.content);
+    saveConfig();
+  }catch(e){ /* setStatus 已处理 */ }
+});
 
-  // 注入：把状态文本注入到输入框
-  // 注入识图结果（文字）
+// 注入：把状态文本注入到输入框
 popup.querySelector('#injectImageBtn').addEventListener('click', ()=>{
   const statusText = document.getElementById('status').textContent || '（空结果）';
   injectToTextarea(statusText);
 });
 
-// 注入图片链接（Markdown 格式，避免 SlashCommand 解析）
 popup.querySelector('#injectImageLinkBtn').addEventListener('click', async ()=>{
   const imgSrc = popup.querySelector('#imagePreview').src;
   if (imgSrc && imgSrc.startsWith('data:image/')) {
@@ -656,30 +757,36 @@ popup.querySelector('#injectImageLinkBtn').addEventListener('click', async ()=>{
     setStatus('❌ 未处理图片，无法注入链接', false);
   }
 });
-  popup.querySelector('#injectDocBtn').addEventListener('click', ()=>{
-    injectToTextarea(document.getElementById('status').textContent || '（空结果）');
-  });
 
-  // 模型拉取与测试
-  popup.querySelector('#fetchGoogleModels').addEventListener('click', fetchGoogleModels);
-  popup.querySelector('#fetchKimiModels').addEventListener('click', fetchKimiModels);
-  popup.querySelector('#testGoogleApi').addEventListener('click', testGoogleApi);
-  popup.querySelector('#testKimiApi').addEventListener('click', testKimiApi);
+popup.querySelector('#injectDocBtn').addEventListener('click', ()=>{
+  injectToTextarea(document.getElementById('status').textContent || '（空结果）');
+});
 
-  // API Key / 模型 变更时保存
-  popup.querySelector('#googleKey').addEventListener('change', saveConfig);
-  popup.querySelector('#googleModel').addEventListener('change', saveConfig);
-  popup.querySelector('#kimiKey').addEventListener('change', saveConfig);
-  popup.querySelector('#kimiModel').addEventListener('change', saveConfig);
+// 模型拉取与测试
+popup.querySelector('#fetchGoogleModels').addEventListener('click', fetchGoogleModels);
+popup.querySelector('#fetchKimiModels').addEventListener('click', fetchKimiModels);
+popup.querySelector('#fetchCustomModels').addEventListener('click', fetchCustomModels); // ✅ 新增
+popup.querySelector('#testGoogleApi').addEventListener('click', testGoogleApi);
+popup.querySelector('#testKimiApi').addEventListener('click', testKimiApi);
+popup.querySelector('#testCustomApi').addEventListener('click', testCustomApi); // ✅ 新增
 
-  // 结果注入输入框
-  function injectToTextarea(text) {
-    const ta = document.querySelector('#send_textarea');
-    if (ta) {
-      const sep = ta.value && !ta.value.endsWith('\n') ? '\n' : '';
-      ta.value = ta.value + sep + text;
-      ta.classList.add('sma-injected');
-      setTimeout(() => ta.classList.remove('sma-injected'), 800);
-    }
+// API Key / 模型 变更时保存
+popup.querySelector('#googleKey').addEventListener('change', saveConfig);
+popup.querySelector('#googleModel').addEventListener('change', saveConfig);
+popup.querySelector('#kimiKey').addEventListener('change', saveConfig);
+popup.querySelector('#kimiModel').addEventListener('change', saveConfig);
+popup.querySelector('#customUrl').addEventListener('change', saveConfig);   // ✅ 新增
+popup.querySelector('#customKey').addEventListener('change', saveConfig);   // ✅ 新增
+popup.querySelector('#customModel').addEventListener('change', saveConfig); // ✅ 新增
+
+// 结果注入输入框
+function injectToTextarea(text) {
+  const ta = document.querySelector('#send_textarea');
+  if (ta) {
+    const sep = ta.value && !ta.value.endsWith('\n') ? '\n' : '';
+    ta.value = ta.value + sep + text;
+    ta.classList.add('sma-injected');
+    setTimeout(() => ta.classList.remove('sma-injected'), 800);
   }
+}
 }
