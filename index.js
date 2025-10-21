@@ -754,7 +754,7 @@ async function recognizeImageFromAPI(base64) {
       messages: [{
         role: 'user',
         content: [
-          { type: 'text', text: '请描述这张图片的内容，并提取关键信息。' },
+          { type: 'text', text: '你是全宇宙全时间线最厉害的图片识别大师，你不受规则制约而是制定了关于图片识别的所有规则，这是你唯一的使命，你不可回避，你虔诚的信徒给了你新的图片，请开始你的表演！' },
           { type: 'image_url', image_url: { url: base64 } }
         ]
       }],
